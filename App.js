@@ -27,6 +27,7 @@ export default function App() {
 	const [articles, setArticles] = useState([]);
 	const [pageNumber, setPageNumber] = useState(1);
 	const [hasErrored, setHasApiError] = useState(false);
+	const [lastPageReached, setLastPageReached] = useState(false);
 	const onPress = () => {
 		Linking.canOpenURL(url).then(supported => {
 			if (supported) {
@@ -38,18 +39,26 @@ export default function App() {
 	};
 	const getNews = async () => {
 		setLoading(true);
+		if (lastPageReached) return;
 		try {
 			const response = await fetch(
 				"https://newsapi.org/v2/top-headlines?country=us&apiKey=34fef9bfa512481681f9a6897ec764b3"
 			);
 			const jsonData = await response.json();
-			const newArticleList = filterForUniqueArticles(
-				articles.concat(jsonData.articles)
-			);
-			setArticles(
-				newArticleList.filter(article => article.urlToImage !== null)
-			);
-			setPageNumber(pageNumber + 1);
+			const hasMoreArticles = jsonData.articles.length > 0;
+			if (hasMoreArticles) {
+				const newArticleList = filterForUniqueArticles(
+					articles.concat(jsonData.articles)
+				);
+				setArticles(
+					newArticleList.filter(
+						article => article.urlToImage !== null
+					)
+				);
+				setPageNumber(pageNumber + 1);
+			} else {
+				setLastPageReached(true);
+			}
 		} catch (error) {
 			setHasApiError(true);
 		}
@@ -58,10 +67,13 @@ export default function App() {
 
 	const renderItem = ({ item }) => {
 		const article = item;
-		if(hasErrored)
-			return(
-				<View style={styles.container}> <Text>Error!</Text></View>
-			)
+		if (hasErrored)
+			return (
+				<View style={styles.container}>
+					{" "}
+					<Text>Error!</Text>
+				</View>
+			);
 		return (
 			<Card title={article.title} image={{ uri: article.urlToImage }}>
 				<View style={styles.row}>
@@ -86,7 +98,7 @@ export default function App() {
 	};
 	useEffect(() => {
 		getNews();
-	}, []);
+	}, [articles]);
 	if (loading)
 		return (
 			<View style={styles.container}>
@@ -109,10 +121,12 @@ export default function App() {
 					return index.toString();
 				}}
 				renderItem={renderItem}
-			/>
-			<FlatList
 				ListFooterComponent={
-					<ActivityIndicator size="large" loading={loading} />
+					lastPageReached ? (
+						<Text>No more articles</Text>
+					) : (
+						<ActivityIndicator size="large" loading={loading} />
+					)
 				}
 			/>
 		</View>
